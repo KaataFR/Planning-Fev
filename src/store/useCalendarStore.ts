@@ -45,6 +45,20 @@ const splitEventByDay = (event: CalendarEvent) => {
 const normalizeEvents = (items: CalendarEvent[]) =>
   items.flatMap((event) => splitEventByDay(event));
 
+const normalizeCategories = (items: string[]) => {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  items.forEach((item) => {
+    const trimmed = item.trim();
+    if (!trimmed) return;
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    result.push(trimmed);
+  });
+  return result;
+};
+
 interface CalendarState {
   events: CalendarEvent[];
   view: ViewType;
@@ -67,6 +81,13 @@ interface CalendarState {
   addUnscheduledEvent: (event: UnscheduledEvent) => void;
   removeUnscheduledEvent: (id: string) => void;
   updateUnscheduledEvent: (event: UnscheduledEvent) => void;
+  setCustomCategories: (items: string[]) => void;
+  setUnscheduledEvents: (items: UnscheduledEvent[]) => void;
+  importData: (payload: {
+    events: CalendarEvent[];
+    customCategories?: string[];
+    unscheduledEvents?: UnscheduledEvent[];
+  }) => void;
 }
 
 const dateReviver = (key: string, value: unknown) => {
@@ -166,6 +187,20 @@ export const useCalendarStore = create<CalendarState>()(
           unscheduledEvents: state.unscheduledEvents.map((item) =>
             item.id === updated.id ? updated : item
           ),
+        })),
+      setCustomCategories: (items) =>
+        set(() => ({
+          customCategories: normalizeCategories(items),
+        })),
+      setUnscheduledEvents: (items) =>
+        set(() => ({
+          unscheduledEvents: items,
+        })),
+      importData: (payload) =>
+        set(() => ({
+          events: normalizeEvents(payload.events),
+          customCategories: normalizeCategories(payload.customCategories ?? []),
+          unscheduledEvents: payload.unscheduledEvents ?? [],
         })),
     }),
     {

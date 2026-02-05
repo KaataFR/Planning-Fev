@@ -10,11 +10,16 @@ interface SettingsModalProps {
 }
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
-  const { events, importEvents } = useCalendarStore();
+  const { events, customCategories, unscheduledEvents, importEvents, importData } = useCalendarStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleExport = () => {
-    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(events));
+    const payload = {
+      events,
+      customCategories,
+      unscheduledEvents,
+    };
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(payload));
     const downloadAnchorNode = document.createElement('a');
     downloadAnchorNode.setAttribute('href', dataStr);
     downloadAnchorNode.setAttribute('download', 'calendar_events.json');
@@ -35,23 +40,55 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     reader.onload = (event) => {
       try {
         const json = JSON.parse(event.target?.result as string);
-        if (Array.isArray(json)) {
-          const validEvents = json.map((evt: any) => ({
-            ...evt,
-            start: new Date(evt.start),
-            end: new Date(evt.end),
-          })) as CalendarEvent[];
-
-          if (
-            confirm(
-              `Voulez-vous importer ${validEvents.length} événements ? Cela remplacera les événements actuels.`
-            )
-          ) {
-            importEvents(validEvents);
-            onClose();
-          }
-        } else {
+        const isLegacyArray = Array.isArray(json);
+        const rawEvents = isLegacyArray
+          ? json
+          : Array.isArray(json?.events)
+          ? json.events
+          : null;
+        if (!rawEvents) {
           alert('Format JSON invalide');
+          return;
+        }
+
+        const validEvents = rawEvents.map((evt: any) => ({
+          ...evt,
+          start: new Date(evt.start),
+          end: new Date(evt.end),
+        })) as CalendarEvent[];
+
+        const nextCustomCategories =
+          !isLegacyArray && Array.isArray(json.customCategories)
+            ? json.customCategories
+            : customCategories;
+        const nextUnscheduledEvents =
+          !isLegacyArray && Array.isArray(json.unscheduledEvents)
+            ? json.unscheduledEvents
+            : unscheduledEvents;
+        const normalizedUnscheduled = Array.isArray(nextUnscheduledEvents)
+          ? nextUnscheduledEvents
+              .filter((evt) => evt && typeof evt === 'object')
+              .map((evt: any) => ({
+                ...evt,
+                durationMinutes: Math.max(15, Number(evt.durationMinutes) || 60),
+              }))
+          : [];
+
+        const message = isLegacyArray
+          ? `Voulez-vous importer ${validEvents.length} événements ? Cela remplacera les événements actuels.`
+          : `Voulez-vous importer ${validEvents.length} événements et les données associées ? Cela remplacera les données actuelles.`;
+
+        if (confirm(message)) {
+          if (isLegacyArray) {
+            importEvents(validEvents);
+          } else {
+            importData({
+              events: validEvents,
+              customCategories: nextCustomCategories,
+              unscheduledEvents: normalizedUnscheduled,
+            });
+          }
+          onClose();
         }
       } catch (err) {
         console.error(err);

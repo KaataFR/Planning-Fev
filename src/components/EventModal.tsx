@@ -11,7 +11,7 @@ import { CalendarEvent, Category, DEFAULT_CATEGORIES, getCategoryLabel } from '.
 
 import { v4 as uuidv4 } from 'uuid';
 
-import { format } from 'date-fns';
+import { differenceInMinutes, format } from 'date-fns';
 
 
 
@@ -71,6 +71,7 @@ export function EventModal({ isOpen, onClose, selectedDate, selectedEventId }: E
     addCategory,
     removeCategory,
     renameCategory,
+    addUnscheduledEvent,
   } = useCalendarStore();
   const [categoryInput, setCategoryInput] = useState('');
   const [showCategoryInput, setShowCategoryInput] = useState(false);
@@ -466,6 +467,63 @@ export function EventModal({ isOpen, onClose, selectedDate, selectedEventId }: E
   };
 
 
+
+  const handleMoveToUnscheduled = () => {
+    if (!editingEvent) return;
+    const values = getValues();
+    const start = new Date(`${values.startDate}T${values.startTime}`);
+    const end = new Date(`${values.endDate}T${values.endTime}`);
+
+    let durationMinutes = 0;
+    if (editingEvent.splitId) {
+      const group = events.filter((evt) => evt.splitId === editingEvent.splitId);
+      if (group.length > 0) {
+        const groupStart = group.reduce(
+          (minDate, evt) => (evt.start < minDate ? evt.start : minDate),
+          group[0].start
+        );
+        const groupEnd = group.reduce(
+          (maxDate, evt) => (evt.end > maxDate ? evt.end : maxDate),
+          group[0].end
+        );
+        durationMinutes = differenceInMinutes(groupEnd, groupStart);
+      }
+    }
+
+    if (durationMinutes <= 0) {
+      if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime()) && end > start) {
+        durationMinutes = differenceInMinutes(end, start);
+      } else {
+        durationMinutes = differenceInMinutes(editingEvent.end, editingEvent.start);
+      }
+    }
+
+    const title = values.title?.trim() || editingEvent.title || 'Sans titre';
+    const category = values.category || editingEvent.category;
+    const description = values.description?.trim() || editingEvent.description || undefined;
+    const color = values.color?.trim() || editingEvent.color || undefined;
+    const titleColor = values.titleColor?.trim() || editingEvent.titleColor || undefined;
+
+    addUnscheduledEvent({
+      id: uuidv4(),
+      title,
+      category,
+      durationMinutes: Math.max(15, durationMinutes),
+      description,
+      color,
+      titleColor,
+    });
+
+    if (editingEvent.splitId) {
+      events
+        .filter((evt) => evt.splitId === editingEvent.splitId)
+        .forEach((evt) => deleteEvent(evt.id));
+    } else {
+      deleteEvent(editingEvent.id);
+    }
+
+    onClose();
+  };
 
   const handleShowCategoryInput = () => {
     setShowCategoryInput(true);
@@ -1031,21 +1089,43 @@ export function EventModal({ isOpen, onClose, selectedDate, selectedEventId }: E
 
             {selectedEventId ? (
 
-              <button
+              <div className="flex items-center gap-2">
 
-                type="button"
+                <button
 
-                onClick={handleDelete}
+                  type="button"
 
-                className="flex items-center gap-2 text-destructive hover:bg-destructive/10 px-3 py-1.5 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/40"
+                  onClick={handleDelete}
 
-              >
+                  className="flex items-center gap-2 text-destructive hover:bg-destructive/10 px-3 py-1.5 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/40"
 
-                <Trash2 className="w-4 h-4" />
+                >
 
-                <span className="text-sm font-medium">Supprimer</span>
+                  <Trash2 className="w-4 h-4" />
 
-              </button>
+                  <span className="text-sm font-medium">Supprimer</span>
+
+                </button>
+
+                <button
+
+                  type="button"
+
+                  onClick={handleMoveToUnscheduled}
+
+                  className="flex items-center gap-2 text-foreground/80 hover:text-foreground hover:bg-muted/60 px-3 py-1.5 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+
+                  title="Déplacer vers les événements à placer"
+
+                >
+
+                  <Clock className="w-4 h-4" />
+
+                  <span className="text-sm font-medium">À placer</span>
+
+                </button>
+
+              </div>
 
             ) : (
 

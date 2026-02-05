@@ -604,23 +604,6 @@ function App() {
           )}
         </div>
 
-        <div className="rounded-2xl border border-border/60 bg-background/70 backdrop-blur p-4 shadow-lg">
-          <div className="text-xs uppercase tracking-wide text-muted-foreground">Prochain événement</div>
-          {nextEvent ? (
-            <div className="mt-2">
-              <div className="text-lg font-semibold truncate">{nextEvent.title}</div>
-              <div className="text-sm text-muted-foreground">
-                {format(nextEvent.start, 'EEEE d MMMM', { locale: fr })} • {format(nextEvent.start, 'HH:mm')}
-              </div>
-              <div className="mt-2 text-sm">
-                <span className="text-muted-foreground">Départ dans </span>
-                <span className="font-semibold text-primary">{countdown}</span>
-              </div>
-            </div>
-          ) : (
-            <div className="mt-2 text-sm text-muted-foreground">Aucun événement</div>
-          )}
-        </div>
       </aside>
 
       <div className="flex-1">
