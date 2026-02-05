@@ -1,7 +1,7 @@
 ﻿import { useMemo } from 'react';
 import { useCalendarStore } from '../store/useCalendarStore';
 import { format } from 'date-fns';
-import { CATEGORY_LABELS } from '../types';
+import { getCategoryLabel } from '../types';
 
 interface EventDetailsModalProps {
   isOpen: boolean;
@@ -35,7 +35,7 @@ export function EventDetailsModal({ isOpen, onClose, eventId }: EventDetailsModa
             {format(event.start, 'dd/MM/yyyy HH:mm')} - {format(event.end, 'dd/MM/yyyy HH:mm')}
           </div>
           <div className="text-xs uppercase tracking-wide text-muted-foreground">
-            {CATEGORY_LABELS[event.category]}
+            {getCategoryLabel(event.category)}
           </div>
           <div className="mt-2 text-sm">
             {event.description ? event.description : 'Aucune description'}

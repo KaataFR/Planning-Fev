@@ -10,16 +10,16 @@ import {
   format,
 } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { CATEGORY_COLORS } from '../types';
+import { getCategoryAccent, getCategoryColorClass, isDefaultCategory } from '../types';
 
 interface MonthViewProps {
-  onEventClick: (eventId: string) => void;
   onEventMenu: (eventId: string, x: number, y: number) => void;
+  onEventSelect: (eventId: string) => void;
   onDayClick: (date: Date) => void;
   onDayRightClick: (date: Date) => void;
 }
 
-export function MonthView({ onEventClick, onEventMenu, onDayClick, onDayRightClick }: MonthViewProps) {
+export function MonthView({ onEventMenu, onEventSelect, onDayClick, onDayRightClick }: MonthViewProps) {
   const { currentDate, events } = useCalendarStore();
 
   const monthStart = startOfMonth(currentDate);
@@ -82,9 +82,14 @@ export function MonthView({ onEventClick, onEventMenu, onDayClick, onDayRightCli
 
               <div className="flex flex-col gap-1 mt-2 overflow-y-auto flex-1 custom-scrollbar">
                 {dayEvents.map((event) => {
+                  const isDefault = isDefaultCategory(event.category);
+                  const accent = getCategoryAccent(event.category);
                   const customStyle = event.color
-                    ? { backgroundColor: event.color, borderLeftColor: event.color, color: '#fff' }
+                    ? { backgroundColor: event.color, borderLeftColor: event.color }
+                    : !isDefault
+                    ? { backgroundColor: accent, borderLeftColor: accent }
                     : undefined;
+                  const titleColor = event.titleColor ?? (event.color || !isDefault ? '#fff' : undefined);
 
                   return (
                     <div
@@ -92,23 +97,21 @@ export function MonthView({ onEventClick, onEventMenu, onDayClick, onDayRightCli
                       style={customStyle}
                       onClick={(e) => {
                         e.stopPropagation();
-                        onEventMenu(event.id, e.clientX, e.clientY);
+                        onEventSelect(event.id);
                       }}
                       onContextMenu={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        onEventClick(event.id);
+                        onEventMenu(event.id, e.clientX, e.clientY);
                       }}
-                      onDoubleClick={(e) => {
-                        e.stopPropagation();
-                        onEventClick(event.id);
-                      }}
-                      className={`text-[11px] px-2 py-1 rounded-md shadow-sm truncate cursor-pointer hover:opacity-90 border-l-4 ${
-                        event.color ? '' : CATEGORY_COLORS[event.category]
+                      className={`text-[11px] px-2 py-1 rounded-none shadow-sm truncate cursor-context-menu hover:opacity-90 border-l-4 ${
+                        event.color || !isDefault ? '' : getCategoryColorClass(event.category)
                       }`}
-                      title={`${event.title} (${format(event.start, 'HH:mm')})`}
+                      title={event.title}
                     >
-                      <span className="font-semibold">{format(event.start, 'HH:mm')}</span> {event.title}
+                      <span className="font-semibold" style={titleColor ? { color: titleColor } : undefined}>
+                        {event.title}
+                      </span>
                     </div>
                   );
                 })}

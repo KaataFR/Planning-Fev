@@ -24,6 +24,7 @@ export function useEventDrag({ pixelsPerMinute, snapToMinutes = 15 }: UseEventDr
   const movedRef = useRef<boolean>(false);
 
   const handleMouseDown = (e: React.MouseEvent, event: CalendarEvent, type: 'move' | 'resize') => {
+    if (e.button !== 0) return;
     e.stopPropagation();
     e.preventDefault();
     movedRef.current = false;

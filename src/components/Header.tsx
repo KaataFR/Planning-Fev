@@ -33,7 +33,7 @@ export function Header({ onAddEvent, onOpenSettings }: HeaderProps) {
       <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-5">
         <div className="flex items-center gap-2">
           <CalendarIcon className="w-6 h-6 text-primary" />
-          <h1 className="text-xl font-bold tracking-tight hidden md:block">Planning</h1>
+          <h1 className="text-xl font-bold tracking-tight hidden md:block">Kplanning</h1>
         </div>
 
         <div className="flex items-center bg-muted/70 border border-border/70 rounded-full overflow-hidden shadow-sm">
@@ -98,3 +98,5 @@ export function Header({ onAddEvent, onOpenSettings }: HeaderProps) {
     </header>
   );
 }
+
+

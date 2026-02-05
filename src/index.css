@@ -76,18 +76,36 @@
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
     font-family: "Space Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    overflow-y: auto;
+    overflow-x: hidden;
     background-image:
       radial-gradient(1200px 600px at 10% -10%, hsl(var(--primary) / 0.18), transparent 60%),
       radial-gradient(900px 500px at 90% 0%, hsl(var(--accent) / 0.35), transparent 55%),
       linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--background)) 100%);
     background-attachment: fixed;
   }
+  body::-webkit-scrollbar {
+    width: 8px;
+  }
+  body::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  body::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background-color: hsl(var(--muted-foreground) / 0.35);
+  }
+  body::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--muted-foreground) / 0.6);
+  }
   h1, h2, h3, h4 {
     font-family: "Newsreader", ui-serif, "Times New Roman", serif;
   }
+  html, body, #root {
+    min-height: 100%;
+  }
   #root {
-    min-height: 100vh;
     padding: 12px;
+    box-sizing: border-box;
   }
   @media (min-width: 768px) {
     #root {
@@ -100,9 +118,15 @@
 }
 
 @layer utilities {
+    .custom-scrollbar {
+        scrollbar-width: thin;
+        scrollbar-color: hsl(var(--muted-foreground) / 0.5) transparent;
+        scrollbar-gutter: stable;
+    }
+
     .custom-scrollbar::-webkit-scrollbar {
-        width: 6px;
-        height: 6px;
+        width: 8px;
+        height: 8px;
     }
 
     .custom-scrollbar::-webkit-scrollbar-track {
@@ -111,10 +135,10 @@
 
     .custom-scrollbar::-webkit-scrollbar-thumb {
         @apply rounded-full;
-        background-color: hsl(var(--muted-foreground) / 0.3);
+        background-color: hsl(var(--muted-foreground) / 0.35);
     }
 
     .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-        background-color: hsl(var(--muted-foreground) / 0.5);
+        background-color: hsl(var(--muted-foreground) / 0.6);
     }
 }
