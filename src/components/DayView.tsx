@@ -2,7 +2,6 @@
 import { format, isSameDay, differenceInMinutes, startOfDay, endOfDay, addMinutes } from 'date-fns';
 import { getCategoryAccent, getCategoryColorClass, isDefaultCategory, CalendarEvent } from '../types';
 import { useEffect, useMemo, useRef } from 'react';
-import { fr } from 'date-fns/locale';
 import { useEventDrag } from '../hooks/useEventDrag';
 import { v4 as uuidv4 } from 'uuid';
 
