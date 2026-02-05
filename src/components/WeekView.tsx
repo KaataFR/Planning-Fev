@@ -25,12 +25,10 @@ const UNSCHEDULED_MIME = 'application/x-kplanning-unscheduled';
 
 interface WeekViewProps {
   onEventSelect: (eventId: string) => void;
-  onDayClick: (date: Date) => void;
 }
 
 export function WeekView({
   onEventSelect,
-  onDayClick,
 }: WeekViewProps) {
   const { currentDate, events, addEvent, unscheduledEvents, removeUnscheduledEvent, timeScale, setTimeScale } =
     useCalendarStore();
@@ -143,28 +141,6 @@ export function WeekView({
 
   return (
     <div className="flex flex-col bg-background/60">
-      <div className="grid grid-cols-8 border-b border-border/60 bg-background/70 backdrop-blur sticky top-0 z-20">
-        <div className="w-16 border-r border-border/60"></div>
-        {days.map((day) => (
-          <div
-            key={day.toString()}
-            className={`py-2 text-center border-r border-border/60 last:border-r-0 ${
-              isSameDay(day, new Date()) ? 'bg-primary/10' : ''
-            }`}
-            onClick={() => onDayClick(day)}
-            role="button"
-            tabIndex={0}
-          >
-            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              {format(day, 'EEE', { locale: fr })}
-            </div>
-            <div className={`text-lg font-bold ${isSameDay(day, new Date()) ? 'text-primary' : ''}`}>
-              {format(day, 'd')}
-            </div>
-          </div>
-        ))}
-      </div>
-
       <div
         ref={zoomRef}
         className="overflow-visible relative custom-scrollbar pb-12"

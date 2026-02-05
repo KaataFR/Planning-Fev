@@ -104,12 +104,12 @@
     min-height: 100%;
   }
   #root {
-    padding: 12px;
+    padding: 0 12px 12px;
     box-sizing: border-box;
   }
   @media (min-width: 768px) {
     #root {
-      padding: 20px;
+      padding: 0 20px 20px;
     }
   }
   ::selection {

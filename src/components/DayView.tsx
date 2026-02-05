@@ -136,12 +136,6 @@ export function DayView({ onEventMenu, onEventSelect, onTimeSlotClick, onTimeSlo
 
   return (
     <div className="flex flex-col bg-background/60">
-      <div className="flex flex-col border-b border-border/60 bg-background/70 backdrop-blur z-10 p-4">
-        <h2 className="text-xl font-bold capitalize text-primary">
-          {format(currentDate, 'EEEE d MMMM yyyy', { locale: fr })}
-        </h2>
-      </div>
-
       <div
         ref={zoomRef}
         className="overflow-visible relative custom-scrollbar pb-12"

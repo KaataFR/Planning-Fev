@@ -7,7 +7,22 @@ import { DayView } from './components/DayView';
 import { EventModal } from './components/EventModal';
 import { SettingsModal } from './components/SettingsModal';
 import { useThemeEffect } from './hooks/useThemeEffect';
-import { format, isAfter, isSameDay, isToday, differenceInMinutes } from 'date-fns';
+import {
+  format,
+  isAfter,
+  isSameDay,
+  differenceInMinutes,
+  startOfDay,
+  endOfDay,
+  startOfWeek,
+  endOfWeek,
+  eachDayOfInterval,
+  startOfMonth,
+  endOfMonth,
+  differenceInCalendarDays,
+  max,
+  min,
+} from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Category, DEFAULT_CATEGORIES, getCategoryAccent, getCategoryLabel } from './types';
 import { Clock, Pencil, Trash2, Check, X, Plus } from 'lucide-react';
@@ -31,12 +46,47 @@ function formatDuration(start: Date, end: Date) {
   return minutes ? `${hours}h ${minutes}m` : `${hours}h`;
 }
 
+function formatMinutes(totalMinutes: number) {
+  const minutes = Math.max(0, Math.round(totalMinutes));
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest ? `${hours}h ${rest}m` : `${hours}h`;
+}
+
+function normalizeHexColor(value: string) {
+  if (!value) return null;
+  let hex = value.trim();
+  if (!hex) return null;
+  if (!hex.startsWith('#')) hex = `#${hex}`;
+  if (hex.length === 4) {
+    hex = `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`;
+  }
+  if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return null;
+  return hex.toLowerCase();
+}
+
+function getReadableTextColors(background?: string) {
+  const hex = normalizeHexColor(background || '');
+  if (!hex) return null;
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const toLinear = (v: number) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
+  const luminance = 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
+  const isLight = luminance > 0.55;
+  const text = isLight ? '#0f172a' : '#f8fafc';
+  const meta = isLight ? 'rgba(15, 23, 42, 0.8)' : 'rgba(248, 250, 252, 0.85)';
+  return { text, meta, isLight };
+}
+
 function App() {
   useThemeEffect();
   const {
     view,
     setView,
     setDate,
+    currentDate,
     events,
     addEvent,
     unscheduledEvents,
@@ -69,6 +119,13 @@ function App() {
     const t = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
+
+  const weekDays = useMemo(() => {
+    if (view !== 'week') return [];
+    const start = startOfWeek(currentDate, { locale: fr });
+    const end = endOfWeek(currentDate, { locale: fr });
+    return eachDayOfInterval({ start, end });
+  }, [currentDate, view]);
 
   const handleAddEvent = () => {
     setSelectedDate(new Date());
@@ -194,6 +251,50 @@ function App() {
   );
   const detailsAccent = detailsEvent ? detailsEvent.color ?? getCategoryAccent(detailsEvent.category) : null;
 
+  const summary = useMemo(() => {
+    const periodStart =
+      view === 'day'
+        ? startOfDay(currentDate)
+        : view === 'week'
+        ? startOfWeek(currentDate, { locale: fr })
+        : startOfMonth(currentDate);
+    const periodEnd =
+      view === 'day'
+        ? endOfDay(currentDate)
+        : view === 'week'
+        ? endOfWeek(currentDate, { locale: fr })
+        : endOfMonth(currentDate);
+    const periodEvents = events.filter((e) => e.start <= periodEnd && e.end >= periodStart);
+    const days = differenceInCalendarDays(periodEnd, periodStart) + 1;
+    let sleepMinutes = 0;
+    let sportMinutes = 0;
+    let mealCount = 0;
+
+    periodEvents.forEach((event) => {
+      const clampedStart = max([event.start, periodStart]);
+      const clampedEnd = min([event.end, periodEnd]);
+      const minutes = Math.max(0, differenceInMinutes(clampedEnd, clampedStart));
+      if (minutes <= 0) return;
+      if (event.category === 'sleep') sleepMinutes += minutes;
+      if (event.category === 'sport') sportMinutes += minutes;
+      if (event.category === 'meal') mealCount += 1;
+    });
+
+    const rangeLabel =
+      view === 'day'
+        ? format(periodStart, 'dd MMMM yyyy', { locale: fr })
+        : view === 'week'
+        ? `Du ${format(periodStart, 'dd MMM', { locale: fr })} au ${format(periodEnd, 'dd MMM', { locale: fr })}`
+        : format(periodStart, 'MMMM yyyy', { locale: fr });
+    return {
+      days,
+      sleepMinutes,
+      sportMinutes,
+      mealCount,
+      rangeLabel,
+    };
+  }, [events, view, currentDate]);
+
   useLayoutEffect(() => {
     if (!menuState) {
       setMenuPosition(null);
@@ -223,7 +324,7 @@ function App() {
 
   return (
     <div className="w-full flex justify-center gap-6 px-4">
-      <aside className="hidden xl:flex flex-col gap-4 w-64 pt-8">
+      <aside className="hidden xl:flex flex-col gap-4 w-64 pt-8 sticky top-6 self-start h-fit">
         <div
           className="rounded-2xl border border-border/60 bg-background/70 backdrop-blur p-4 shadow-lg border-l-4"
           style={currentAccent ? { borderLeftColor: currentAccent } : undefined}
@@ -289,7 +390,17 @@ function App() {
               </div>
             ) : (
               unscheduledEvents.map((item) => {
-                const itemTitleColor = item.titleColor ?? (item.color ? '#fff' : undefined);
+                const readable = getReadableTextColors(item.color);
+                const itemTitleColor =
+                  item.titleColor ?? readable?.text ?? (item.color ? '#fff' : undefined);
+                const metaStyle = readable
+                  ? {
+                      backgroundColor: readable.isLight
+                        ? 'rgba(15, 23, 42, 0.12)'
+                        : 'rgba(248, 250, 252, 0.18)',
+                      color: readable.text,
+                    }
+                  : undefined;
                 return (
                   <div
                     key={item.id}
@@ -311,8 +422,23 @@ function App() {
                     >
                       {item.title}
                     </div>
-                    <div className="text-[11px] text-muted-foreground">
-                      {getCategoryLabel(item.category)} • {item.durationMinutes} min
+                    <div className="mt-1 flex flex-wrap gap-1 text-[11px] font-semibold">
+                      <span
+                        className={`px-2 py-0.5 rounded-full ${
+                          metaStyle ? '' : 'bg-muted/70 text-foreground/80'
+                        }`}
+                        style={metaStyle ?? undefined}
+                      >
+                        {getCategoryLabel(item.category)}
+                      </span>
+                      <span
+                        className={`px-2 py-0.5 rounded-full ${
+                          metaStyle ? '' : 'bg-muted/70 text-foreground/80'
+                        }`}
+                        style={metaStyle ?? undefined}
+                      >
+                        {item.durationMinutes} min
+                      </span>
                     </div>
 
                     <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -498,26 +624,75 @@ function App() {
       </aside>
 
       <div className="flex-1">
-        <div className="flex flex-col min-h-screen w-full max-w-[1200px] xl:max-w-[1400px] mx-auto bg-background/80 text-foreground border border-border/60 shadow-2xl rounded-2xl md:rounded-3xl backdrop-blur-xl">
-          {nextEvent && isToday(nextEvent.start) && (
-            <div className="bg-gradient-to-r from-primary/15 via-primary/5 to-transparent px-6 py-2.5 flex items-center gap-3 border-b border-border/60 text-sm backdrop-blur">
-              <span className="font-bold text-primary flex items-center gap-1">
-                <Clock className="w-4 h-4" /> Prochain événement :
-              </span>
-              <span className="font-semibold">{format(nextEvent.start, 'HH:mm')}</span>
-              <span>{nextEvent.title}</span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-bold bg-black text-white/90">
-                {getCategoryLabel(nextEvent.category)}
-              </span>
+        <div className="w-full max-w-[1200px] xl:max-w-[1400px] mx-auto">
+          <div className="sticky top-0 z-40 bg-background pb-3">
+            <div className="rounded-3xl bg-background border border-border/60 shadow-2xl p-3">
+              <div className="flex flex-col gap-3">
+                <div className="bg-background px-6 py-2.5 flex items-center gap-3 border border-border/60 text-sm rounded-2xl md:rounded-3xl shadow-lg">
+                  <span className="font-bold text-primary flex items-center gap-1">
+                    <Clock className="w-4 h-4" /> Prochain événement :
+                  </span>
+                  {nextEvent ? (
+                    <>
+                      <span className="font-semibold">{format(nextEvent.start, 'HH:mm')}</span>
+                      <span>{nextEvent.title}</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-bold bg-black text-white/90">
+                        {getCategoryLabel(nextEvent.category)}
+                      </span>
+                      <span className="ml-auto text-xs text-muted-foreground">
+                        Départ dans <span className="font-semibold text-foreground">{countdown}</span>
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-muted-foreground">Aucun événement à venir.</span>
+                  )}
+                </div>
+
+                <div className="bg-background text-foreground border border-border/60 shadow-2xl rounded-2xl md:rounded-3xl overflow-hidden">
+                  <Header onAddEvent={handleAddEvent} onOpenSettings={() => setIsSettingsOpen(true)} />
+                </div>
+
+                {view === 'day' && (
+                  <div className="bg-background border border-border/60 rounded-2xl md:rounded-3xl px-6 py-3">
+                    <div className="text-xl font-bold capitalize text-primary">
+                      {format(currentDate, 'EEEE d MMMM yyyy', { locale: fr })}
+                    </div>
+                  </div>
+                )}
+
+                {view === 'week' && (
+                  <div className="grid grid-cols-8 border border-border/60 bg-background rounded-2xl md:rounded-3xl overflow-hidden">
+                    <div className="w-16 border-r border-border/60" />
+                    {weekDays.map((day) => (
+                      <div
+                        key={day.toString()}
+                        className={`py-2 text-center border-r border-border/60 last:border-r-0 ${
+                          isSameDay(day, new Date()) ? 'bg-primary/10' : ''
+                        }`}
+                        onClick={() => handleDayClick(day)}
+                        role="button"
+                        tabIndex={0}
+                      >
+                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                          {format(day, 'EEE', { locale: fr })}
+                        </div>
+                        <div className={`text-lg font-bold ${isSameDay(day, new Date()) ? 'text-primary' : ''}`}>
+                          {format(day, 'd')}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          )}
+          </div>
 
-          <Header onAddEvent={handleAddEvent} onOpenSettings={() => setIsSettingsOpen(true)} />
+          <div className="mt-4 flex flex-col min-h-screen w-full bg-background/80 text-foreground border border-border/60 shadow-2xl rounded-2xl md:rounded-3xl backdrop-blur-xl">
 
-          <main className="relative">
-            {view === 'month' && (
-              <MonthView
-                onEventMenu={handleEventMenu}
+            <main className="relative">
+              {view === 'month' && (
+                <MonthView
+                  onEventMenu={handleEventMenu}
                 onEventSelect={setDetailsEventId}
                 onDayClick={handleDayClick}
                 onDayRightClick={handleQuickCreate}
@@ -526,7 +701,6 @@ function App() {
             {view === 'week' && (
               <WeekView
                 onEventSelect={setDetailsEventId}
-                onDayClick={handleDayClick}
               />
             )}
             {view === 'day' && (
@@ -536,21 +710,22 @@ function App() {
                 onTimeSlotClick={handleTimeSlotClick}
                 onTimeSlotRightClick={handleQuickCreate}
               />
-            )}
-          </main>
+              )}
+            </main>
 
-          <EventModal
-            isOpen={isModalOpen}
-            onClose={() => setIsModalOpen(false)}
-            selectedDate={selectedDate}
-            selectedEventId={selectedEventId}
-          />
+            <EventModal
+              isOpen={isModalOpen}
+              onClose={() => setIsModalOpen(false)}
+              selectedDate={selectedDate}
+              selectedEventId={selectedEventId}
+            />
 
-          <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+            <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+          </div>
         </div>
       </div>
 
-      <aside className="hidden xl:flex flex-col gap-4 w-64 pt-8">
+      <aside className="hidden xl:flex flex-col gap-4 w-64 pt-8 sticky top-6 self-start h-fit">
         <div
           className="rounded-2xl border border-border/60 bg-background/70 backdrop-blur p-4 shadow-lg border-l-4"
           style={detailsAccent ? { borderLeftColor: detailsAccent } : undefined}
@@ -609,7 +784,37 @@ function App() {
           <div className="mt-2 text-sm text-muted-foreground">
             Vue {view === 'week' ? 'semaine' : view === 'day' ? 'jour' : 'mois'}
           </div>
-          <div className="mt-2 text-sm text-muted-foreground">Événements: {events.length}</div>
+          <div className="text-xs text-muted-foreground">{summary.rangeLabel}</div>
+          <div className="mt-3 grid gap-2 text-sm text-foreground/90">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">
+                {view === 'day'
+                  ? 'Sommeil total (jour)'
+                  : `Sommeil moyen / jour (${view === 'week' ? 'semaine' : 'mois'})`}
+              </span>
+              <span className="font-semibold">
+                {view === 'day'
+                  ? formatMinutes(summary.sleepMinutes)
+                  : formatMinutes(summary.sleepMinutes / Math.max(1, summary.days))}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">
+                {view === 'day'
+                  ? 'Repas (jour)'
+                  : `Repas total (${view === 'week' ? 'semaine' : 'mois'})`}
+              </span>
+              <span className="font-semibold">{summary.mealCount} repas</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">
+                {view === 'day'
+                  ? 'Sport total (jour)'
+                  : `Sport total (${view === 'week' ? 'semaine' : 'mois'})`}
+              </span>
+              <span className="font-semibold">{formatMinutes(summary.sportMinutes)}</span>
+            </div>
+          </div>
         </div>
       </aside>
 

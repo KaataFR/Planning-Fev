@@ -1,4 +1,5 @@
-﻿import { useRef } from 'react';
+import { useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Download, Upload, X, Trash2 } from 'lucide-react';
 import { useCalendarStore } from '../store/useCalendarStore';
 import { CalendarEvent } from '../types';
@@ -69,7 +70,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   if (!isOpen) return null;
 
-  return (
+  const modalContent = (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
       <div className="bg-background/90 rounded-2xl shadow-2xl w-full max-w-sm border border-border/70 overflow-hidden">
         <div className="flex justify-between items-center p-5 border-b border-border/60 bg-gradient-to-r from-primary/10 to-transparent">
@@ -126,4 +127,6 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 }

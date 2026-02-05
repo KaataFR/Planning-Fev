@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
+import { createPortal } from 'react-dom';
 
 import { useForm } from 'react-hook-form';
 
@@ -544,13 +545,10 @@ export function EventModal({ isOpen, onClose, selectedDate, selectedEventId }: E
 
   if (!isOpen) return null;
 
-
-
-  return (
-
+  const modalContent = (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
 
-      <div className="bg-background/90 rounded-2xl shadow-2xl w-full max-w-2xl border border-border/70 overflow-hidden flex flex-col max-h-[88vh] -translate-y-6 md:-translate-y-10">
+      <div className="bg-background/90 rounded-2xl shadow-2xl w-full max-w-2xl border border-border/70 overflow-hidden flex flex-col max-h-[88vh]">
 
         <div className="flex justify-between items-center p-3 border-b border-border/60 bg-gradient-to-r from-primary/10 to-transparent">
 
@@ -1128,10 +1126,10 @@ export function EventModal({ isOpen, onClose, selectedDate, selectedEventId }: E
           </div>
         </div>
       )}
-
     </div>
-
   );
+
+  return createPortal(modalContent, document.body);
 
 }
 
